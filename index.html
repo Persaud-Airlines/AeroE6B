@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>AeroCalc | Digital E6B</title>
+    
+    <style>
+        :root {
+            --bg: #F2F2F7;
+            --sidebar: #FFFFFF;
+            --text: #000000;
+            --accent: #007AFF;
+            --secondary: #8E8E93;
+            --border: rgba(0, 0, 0, 0.1);
+        }
+
+        [data-theme="dark"] {
+            --bg: #000000;
+            --sidebar: #1C1C1E;
+            --text: #FFFFFF;
+            --accent: #0A84FF;
+            --border: rgba(255, 255, 255, 0.1);
+        }
+
+        [data-theme="ll-mode"] {
+            --bg: #000000;
+            --sidebar: #000000;
+            --text: #FF0000;
+            --accent: #FF0000;
+            --secondary: #660000;
+            --border: #440000;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* SIDEBARS */
+        .sidebar {
+            width: 280px;
+            background: var(--sidebar);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            padding-top: env(safe-area-inset-top);
+            flex-shrink: 0;
+        }
+
+        .sidebar-right {
+            border-right: none;
+            border-left: 1px solid var(--border);
+            visibility: hidden; 
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .sidebar-header {
+            padding: 25px 20px 10px 20px;
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--secondary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .nav-item {
+            padding: 14px 20px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: background 0.2s;
+        }
+
+        .nav-item:hover { background: rgba(0,0,0,0.05); }
+        .nav-item.active { background: var(--accent); color: white; }
+
+        /* MAIN CONTENT AREA */
+        .main-stage {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            position: relative;
+        }
+
+        #dashboard {
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .zulu-mini { font-size: 16px; color: var(--secondary); font-weight: 600; text-transform: uppercase; margin-bottom: 4px; }
+        .local-clock { font-size: 80px; font-weight: 800; letter-spacing: -3px; margin: 0; line-height: 1; }
+        .date-label { font-size: 20px; margin-top: 10px; color: var(--text); }
+        .welcome-msg { margin-top: 40px; color: var(--secondary); line-height: 1.5; font-size: 15px; }
+
+        #calc-view {
+            display: none;
+            width: 100%;
+            max-width: 450px;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .calc-header { margin-bottom: 30px; text-align: left; border-bottom: 2px solid var(--accent); padding-bottom: 10px; }
+        .calc-header h1 { margin: 0; font-size: 32px; font-weight: 800; }
+
+        .input-row {
+            background: var(--sidebar);
+            border-radius: 12px;
+            padding: 18px;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid var(--border);
+        }
+
+        .input-row label { font-weight: 600; font-size: 15px; }
+        .input-row input, .input-row select {
+            background: transparent;
+            border: none;
+            color: var(--accent);
+            font-size: 20px;
+            font-weight: 700;
+            text-align: right;
+            outline: none;
+            font-family: inherit;
+        }
+        
+        select { cursor: pointer; -webkit-appearance: none; }
+
+        .result-panel {
+            margin-top: 25px;
+            background: var(--accent);
+            color: white;
+            padding: 25px;
+            border-radius: 16px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0, 122, 255, 0.3);
+        }
+        .result-val { font-size: 36px; font-weight: 800; display: block; }
+        .result-label { font-size: 12px; text-transform: uppercase; opacity: 0.8; font-weight: 700; }
+
+        .theme-dots { position: fixed; bottom: 30px; right: 30px; display: flex; gap: 12px; }
+        .dot { width: 35px; height: 35px; border-radius: 50%; border: 2px solid var(--border); cursor: pointer; }
+    </style>
+</head>
+<body data-theme="light">
+
+    <nav class="sidebar">
+        <div class="sidebar-header">Flight Computer</div>
+        <div class="nav-item" onclick="loadCalc('Ground Speed')"><span>✈️ Ground Speed</span> ❯</div>
+        <div class="nav-item" onclick="loadCalc('Fuel Consumption')"><span>⛽ Fuel Consumption</span> ❯</div>
+        <div class="nav-item" onclick="loadCalc('Cloud Base')"><span>☁️ Cloud Base</span> ❯</div>
+        <div class="nav-item" onclick="loadCalc('Pressure Alt')"><span>🏔️ Pressure Altitude</span> ❯</div>
+        <div class="nav-item" onclick="loadCalc('Density Alt')"><span>🌫️ Density Altitude</span> ❯</div>
+        <div class="nav-item" onclick="loadCalc('Airspeed')"><span>💨 Airspeed (TAS)</span> ❯</div>
+        <div class="nav-item" onclick="loadCalc('Wind Correction')"><span>🌬️ Wind Correction</span> ❯</div>
+        <div class="nav-item" onclick="loadCalc('Weight & Balance')"><span>⚖️ Weight & Balance</span> ❯</div>
+        <div class="nav-item" onclick="toggleRightNav()"><span>🔄 Unit Conversions</span> ❯</div>
+        <div style="flex-grow: 1;"></div>
+        <div class="nav-item" onclick="resetToHome()" style="border-top: 1px solid var(--border);"><span>🏠 Home / Clock</span></div>
+    </nav>
+
+    <main class="main-stage">
+        <div id="dashboard">
+            <div id="zulu" class="zulu-mini">ZULU --:--</div>
+            <h1 id="local" class="local-clock">--:--</h1>
+            <div id="date" class="date-label">----</div>
+            <div class="welcome-msg">
+                Welcome to your digital E6B.<br>
+                Please select a function to continue.
+            </div>
+        </div>
+
+        <div id="calc-view">
+            <div class="calc-header">
+                <h1 id="active-title">---</h1>
+            </div>
+            <div id="input-container"></div>
+            <div id="result-container" class="result-panel">
+                <span class="result-label">Calculated Result</span>
+                <span class="result-val" id="main-result">--</span>
+            </div>
+        </div>
+    </main>
+
+    <nav id="sidebar-right" class="sidebar sidebar-right">
+        <div class="sidebar-header">Conversions</div>
+        <div id="unit-items"></div>
+    </nav>
+
+    <div class="theme-dots">
+        <div class="dot" style="background: white;" onclick="setTheme('light')"></div>
+        <div class="dot" style="background: #1C1C1E;" onclick="setTheme('dark')"></div>
+        <div class="dot" style="background: black; border-color: red;" onclick="setTheme('ll-mode')"></div>
+    </div>
+
+<script>
+    // --- CX-3 Reference Constants ---
+    const CONST = {
+        CS_0: 340.291605,
+        StdPressure_mb: 1013.25,
+        Tstd_div_L: 44330.769,
+        Tstd_atm: 288.15,
+        L: 0.0065,
+        gMRL: 5.255876,
+        inv_gMRL: 1 / 5.255876,
+        Gamma: 1.4,
+        R: 287.05287,
+        M: 0.0289644
+    };
+
+    const CONVERSIONS = {
+        "Length": { base: "m", units: { "Meters": 1, "Feet": 0.3048, "Nautical Miles": 1852, "Statute Miles": 1609.34, "Kilometers": 1000, "Inches": 0.0254 } },
+        "Speed": { base: "mps", units: { "Knots": 0.514444, "MPH": 0.44704, "KPH": 0.277778, "fps": 0.3048, "mps": 1 } },
+        "Volume": { base: "l", units: { "Litres": 1, "US Gallons": 3.78541, "Imp Gallons": 4.54609, "US Quarts": 0.946353 } },
+        "Weight": { base: "kg", units: { "Kilograms": 1, "Pounds": 0.453592 } },
+        "Pressure": { base: "hpa", units: { "mbar/hPa": 1, "InHg": 33.8639, "PSI": 68.9476 } },
+        "Temperature": { isSpecial: true, units: ["Celsius", "Fahrenheit", "Kelvin"] }
+    };
+
+    // --- Clock Logic ---
+    function updateTime() {
+        const now = new Date();
+        document.getElementById('zulu').innerText = `ZULU ${now.toISOString().slice(11, 16)}`;
+        document.getElementById('local').innerText = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+        document.getElementById('date').innerText = now.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' });
+    }
+    setInterval(updateTime, 1000);
+    updateTime();
+
+    function resetToHome() {
+        document.getElementById('dashboard').style.display = 'flex';
+        document.getElementById('calc-view').style.display = 'none';
+        document.getElementById('sidebar-right').style.visibility = 'hidden';
+        document.getElementById('sidebar-right').style.opacity = '0';
+    }
+
+    function toggleRightNav() {
+        const right = document.getElementById('sidebar-right');
+        const items = document.getElementById('unit-items');
+        right.style.visibility = 'visible';
+        right.style.opacity = '1';
+        items.innerHTML = '';
+        Object.keys(CONVERSIONS).forEach(cat => {
+            const div = document.createElement('div');
+            div.className = 'nav-item';
+            div.innerHTML = `<span>${cat}</span> ❯`;
+            div.onclick = () => setupConversionUI(cat);
+            items.appendChild(div);
+        });
+    }
+
+    function setupConversionUI(category) {
+        document.getElementById('dashboard').style.display = 'none';
+        document.getElementById('calc-view').style.display = 'block';
+        document.getElementById('active-title').innerText = category;
+        const config = CONVERSIONS[category];
+        const units = config.isSpecial ? config.units : Object.keys(config.units);
+        const container = document.getElementById('input-container');
+        container.innerHTML = `
+            <div class="input-row"><label>Value</label><input type="number" id="c-val" value="1" oninput="runConv('${category}')"></div>
+            <div class="input-row"><label>From</label><select id="c-from" onchange="runConv('${category}')">${units.map(u=>`<option>${u}</option>`).join('')}</select></div>
+            <div class="input-row"><label>To</label><select id="c-to" onchange="runConv('${category}')">${units.map(u=>`<option>${u}</option>`).join('')}</select></div>
+        `;
+        runConv(category);
+    }
+
+    function loadCalc(title) {
+        document.getElementById('dashboard').style.display = 'none';
+        document.getElementById('calc-view').style.display = 'block';
+        document.getElementById('active-title').innerText = title;
+        document.getElementById('sidebar-right').style.visibility = 'hidden';
+        document.getElementById('sidebar-right').style.opacity = '0';
+        const inputs = document.getElementById('input-container');
+        document.getElementById('main-result').innerText = "--";
+
+        if(title === 'Ground Speed') {
+            inputs.innerHTML = `<div class="input-row"><label>Distance (nm)</label><input type="number" id="v1" oninput="runGS()"></div>
+                                <div class="input-row"><label>Time (min)</label><input type="number" id="v2" oninput="runGS()"></div>`;
+        } else if(title === 'Cloud Base') {
+            inputs.innerHTML = `<div class="input-row"><label>OAT (°C)</label><input type="number" id="v1" oninput="runCB()"></div>
+                                <div class="input-row"><label>Dew Point (°C)</label><input type="number" id="v2" oninput="runCB()"></div>`;
+        } else if(title === 'Pressure Alt') {
+            inputs.innerHTML = `<div class="input-row"><label>Ind. Alt (ft)</label><input type="number" id="v1" oninput="runPAlt()"></div>
+                                <div class="input-row"><label>Altimeter (InHg)</label><input type="number" id="v2" step="0.01" value="29.92" oninput="runPAlt()"></div>`;
+        } else if(title === 'Density Alt') {
+            inputs.innerHTML = `<div class="input-row"><label>P-Alt (ft)</label><input type="number" id="v1" oninput="runDAlt()"></div>
+                                <div class="input-row"><label>OAT (°C)</label><input type="number" id="v2" oninput="runDAlt()"></div>`;
+        } else if(title === 'Airspeed') {
+            inputs.innerHTML = `<div class="input-row"><label>CAS (kts)</label><input type="number" id="v1" oninput="runAirspeed()"></div>
+                                <div class="input-row"><label>P-Alt (ft)</label><input type="number" id="v2" oninput="runAirspeed()"></div>
+                                <div class="input-row"><label>OAT (°C)</label><input type="number" id="v3" oninput="runAirspeed()"></div>`;
+        } else {
+            inputs.innerHTML = `<p style="padding:20px; color:var(--secondary)">This function will be mapped in the next update.</p>`;
+        }
+    }
+
+    // --- Math Engines ---
+    function compute_h(baroMb) {
+        return CONST.Tstd_div_L * (1 - (Math.pow((baroMb / CONST.StdPressure_mb), CONST.inv_gMRL)));
+    }
+
+    function runPAlt() {
+        const iAlt = parseFloat(document.getElementById('v1').value) * 0.3048; // to meters
+        const baroInHg = parseFloat(document.getElementById('v2').value);
+        const baroMb = baroInHg * 33.8639;
+        if(!isNaN(iAlt) && !isNaN(baroMb)) {
+            const resM = iAlt + compute_h(baroMb);
+            document.getElementById('main-result').innerText = Math.round(resM / 0.3048) + " FT";
+        }
+    }
+
+    function runDAlt() {
+        const pAltM = parseFloat(document.getElementById('v1').value) * 0.3048;
+        const oatK = parseFloat(document.getElementById('v2').value) + 273.15;
+        if(!isNaN(pAltM) && !isNaN(oatK)) {
+            const tmp = (CONST.Tstd_atm / oatK) * (Math.pow((1 - ((CONST.L * pAltM) / CONST.Tstd_atm)), CONST.gMRL));
+            const dAltM = (CONST.Tstd_atm / CONST.L) * (1 - Math.pow(tmp, (1 / (CONST.gMRL - 1))));
+            document.getElementById('main-result').innerText = Math.round(dAltM / 0.3048) + " FT";
+        }
+    }
+
+    function runAirspeed() {
+        const casKts = parseFloat(document.getElementById('v1').value);
+        const pAltM = parseFloat(document.getElementById('v2').value) * 0.3048;
+        const oatK = parseFloat(document.getElementById('v3').value) + 273.15;
+        if (!isNaN(casKts) && !isNaN(pAltM) && !isNaN(oatK)) {
+            const casMps = casKts * 0.514444;
+            const dp = CONST.StdPressure_mb * (Math.pow((1 + 0.2 * Math.pow(casMps/CONST.CS_0, 2)), 3.5) - 1);
+            const p = CONST.StdPressure_mb * Math.pow((1 - (pAltM / CONST.Tstd_div_L)), CONST.gMRL);
+            const mach = Math.sqrt(5 * (Math.pow((dp/p + 1), (2.0/7.0)) - 1));
+            const soundSpeed = Math.sqrt(CONST.Gamma * CONST.R / CONST.M) * Math.sqrt(oatK);
+            document.getElementById('main-result').innerText = Math.round((mach * soundSpeed) / 0.514444) + " KTAS";
+        }
+    }
+
+    function runGS() {
+        const d = parseFloat(document.getElementById('v1').value);
+        const t = parseFloat(document.getElementById('v2').value);
+        if(d && t) document.getElementById('main-result').innerText = (d / (t / 60)).toFixed(1) + " KTS";
+    }
+
+    function runCB() {
+        const oat = parseFloat(document.getElementById('v1').value);
+        const dp = parseFloat(document.getElementById('v2').value);
+        if(!isNaN(oat) && !isNaN(dp)) document.getElementById('main-result').innerText = Math.round(((oat - dp) / 2.444444) * 1000) + " FT AGL";
+    }
+
+    function runConv(cat) {
+        const val = parseFloat(document.getElementById('c-val').value) || 0;
+        const from = document.getElementById('c-from').value;
+        const to = document.getElementById('c-to').value;
+        const config = CONVERSIONS[cat];
+        let res = (config.isSpecial) ? 
+            ((from === "Celsius" ? val : from === "Fahrenheit" ? (val - 32) * 5/9 : val - 273.15)) : 
+            (val * config.units[from]) / config.units[to];
+        if(config.isSpecial) res = (to === "Celsius") ? res : (to === "Fahrenheit" ? (res * 9/5) + 32 : res + 273.15);
+        document.getElementById('main-result').innerText = res.toFixed(2) + " " + to;
+    }
+
+    function setTheme(t) { document.body.setAttribute('data-theme', t); }
+</script>
+</body>
+</html>
